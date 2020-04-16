@@ -2,20 +2,22 @@
 ---------- Discord Reports --------
 ---           by Badger         ---
 -----------------------------------
-
+-- Config --
+webhookURL = ''
+displayIdentifiers = true;
 roleList = {
-{0, "~w~"}, -- Regular Civilian / Non-Staff
-{577631197987995678, "~r~STAFF ~w~"}, --[[ T-Mod --- 577631197987995678 ]] 
-{506211787214159872, "~r~STAFF ~w~"}, --[[ Moderator --- 506211787214159872 ]]
-{506212543749029900, "~r~STAFF ~w~"}, --[[ Admin --- 506212543749029900 ]]
-{577966729981067305, "~p~MANAGEMENT ~w~"}, --[[ Management --- 577966729981067305 ]]
-{506212786481922058, "~o~OWNER ~w~"}, --[[ Owner --- 506212786481922058]]
+	-- The tags have no functionality, the script wasn't working properly without them so I just left them...
+{1}, --[[ T-Mod --- 577631197987995678 ]] 
+{1}, --[[ Moderator --- 506211787214159872 ]]
+{1}, --[[ Admin --- 506212543749029900 ]]
+{1}, --[[ Management --- 577966729981067305 ]]
+{1}, --[[ Owner --- 506212786481922058]]
 }
-
+-- CODE --
 function GetPlayers()
     local players = {}
 
-    for i = 0, 31 do
+    for _, i in ipairs(GetActivePlayers()) do
         if NetworkIsPlayerActive(i) then
             table.insert(players, i)
         end
@@ -48,7 +50,25 @@ RegisterCommand("report", function(source, args, rawCommand)
 		-- it's a number
 		TriggerClientEvent("Reports:CheckPermission:Client", -1, msg, false)
 		TriggerClientEvent('chatMessage', source, "^9[^1Badger-Reports^9] ^2Report has been submitted! Thank you for helping us :)")
-		sendToDisc("NEW REPORT: _" .. tostring(id) .. " _", message, "[" .. source .. "] " .. GetPlayerName(source))
+		if not displayIdentifiers then 
+			sendToDisc("NEW REPORT: _[" .. tostring(id) .. "] " .. GetPlayerName(id) .. "_", 'Reason: **' .. message ..
+				'**', "Reported by: [" .. source .. "] " .. GetPlayerName(source))
+		else 
+			-- Display the identifiers with the report 
+			local ids = ExtractIdentifiers(id);
+			local steam = ids.steam:gsub("steam:", "");
+			local steamDec = tostring(tonumber(steam,16));
+			steam = "https://steamcommunity.com/profiles/" .. steamDec;
+			local gameLicense = ids.license;
+			local discord = ids.discord;
+			sendToDisc("NEW REPORT: _[" .. tostring(id) .. "] " .. GetPlayerName(id) .. "_", 
+				'Reason: **' .. message ..
+				'**\n' ..
+				'Steam: **' .. steam .. '**\n' ..
+				'GameLicense: **' .. gameLicense .. '**\n' ..
+				'Discord Tag: **<@' .. discord:gsub('discord:', '') .. '>**\n' ..
+				'Discord UID: **' .. discord:gsub('discord:', '') .. '**', "Reported by: [" .. source .. "] " .. GetPlayerName(source))
+		end 
 		--print("Runs report command fine and is number for ID") -- TODO - Debug
 	else
 		-- It's not a number
@@ -62,14 +82,15 @@ function sendToDisc(title, message, footer)
 		{
 			["color"] = 16711680, -- GREEN = 65280 --- RED = 16711680
 			["title"] = "**".. title .."**",
-			["description"] = "** " .. message ..  " **",
+			["description"] = "" .. message ..  "",
 			["footer"] = {
 				["text"] = footer,
 			},
 		}
 	}
 	-- Start
-	PerformHttpRequest('', 
+	-- TODO Input Webhook
+	PerformHttpRequest(webhookURL, 
 	function(err, text, headers) end, 'POST', json.encode({username = name, embeds = embed}), { ['Content-Type'] = 'application/json' })
   -- END
 end
@@ -94,45 +115,8 @@ doesNotHavePermission = {}
 RegisterNetEvent("Reports:CheckPermission")
 AddEventHandler("Reports:CheckPermission", function(msg, error)
 	local src = source
-	if not has_value(hasPermission, GetPlayerName(src)) and not has_value(doesNotHavePermission, GetPlayerName(src)) then
-		for k, v in ipairs(GetPlayerIdentifiers(src)) do
-				if string.sub(v, 1, string.len("discord:")) == "discord:" then
-					identifierDiscord = v
-				end
-		end
-		if identifierDiscord then
-			local roleIDs = exports.discord_perms:GetRoles(src)
-			if not (roleIDs == false) then
-			local endLoop = false
-				for i = 1, #roleList do
-					if not endLoop then
-						for j = 1, #roleIDs do
-							if (tostring(roleList[i][1]) == tostring(roleIDs[j])) then
-								-- Has permission to see the command
-								TriggerClientEvent('chatMessage', src, "^9[^1Report^9] ^8" .. msg)
-								table.insert(hasPermission, GetPlayerName(src))
-								endLoop = true
-								print("Has permission to see it, should see it") -- TODO - Debug, get rid of
-							end
-						end
-					end
-				end
-			else
-				-- Does not have permission to see the command
-				print(GetPlayerName(src) .. " has not got permission to see reports cause roleIDs == false")
-			end
-		else
-			-- Does not have permission to see the command cause no discord
-		end
-		if not has_value(hasPermission, GetPlayerName(src)) then
-			table.insert(doesNotHavePermission, GetPlayerName(src))
-			print(GetPlayerName(src) .. " added to doesNotHavePermission because they didn't have the discord role or error occurred...")
-		end
-	else
-		-- Just print it for them
-		if not has_value(doesNotHavePermission, GetPlayerName(src)) then
-			TriggerClientEvent('chatMessage', src, "^9[^1Report^9] ^8" .. msg)
-		end
+	if IsPlayerAceAllowed(src, "BadgerReports.See") then 
+		TriggerClientEvent('chatMessage', src, "^9[^1Report^9] ^8" .. msg)
 	end
 end)
 
@@ -146,4 +130,36 @@ function stringsplit(inputstr, sep)
         i = i + 1
     end
     return t
+end
+function ExtractIdentifiers(src)
+    local identifiers = {
+        steam = "",
+        ip = "",
+        discord = "",
+        license = "",
+        xbl = "",
+        live = ""
+    }
+
+    --Loop over all identifiers
+    for i = 0, GetNumPlayerIdentifiers(src) - 1 do
+        local id = GetPlayerIdentifier(src, i)
+
+        --Convert it to a nice table.
+        if string.find(id, "steam") then
+            identifiers.steam = id
+        elseif string.find(id, "ip") then
+            identifiers.ip = id
+        elseif string.find(id, "discord") then
+            identifiers.discord = id
+        elseif string.find(id, "license") then
+            identifiers.license = id
+        elseif string.find(id, "xbl") then
+            identifiers.xbl = id
+        elseif string.find(id, "live") then
+            identifiers.live = id
+        end
+    end
+
+    return identifiers
 end

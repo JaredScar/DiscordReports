@@ -3,8 +3,6 @@
 ---           by Badger         ---
 -----------------------------------
 
-canGetMessage = false
-
 RegisterNetEvent("Reports:CheckPermission:Client")
 AddEventHandler("Reports:CheckPermission:Client", function(msg, error)
 	TriggerServerEvent("Reports:CheckPermission", msg, false)
