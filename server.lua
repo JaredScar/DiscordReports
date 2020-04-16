@@ -5,14 +5,7 @@
 -- Config --
 webhookURL = ''
 displayIdentifiers = true;
-roleList = {
-	-- The tags have no functionality, the script wasn't working properly without them so I just left them...
-{1}, --[[ T-Mod --- 577631197987995678 ]] 
-{1}, --[[ Moderator --- 506211787214159872 ]]
-{1}, --[[ Admin --- 506212543749029900 ]]
-{1}, --[[ Management --- 577966729981067305 ]]
-{1}, --[[ Owner --- 506212786481922058]]
-}
+
 -- CODE --
 function GetPlayers()
     local players = {}
